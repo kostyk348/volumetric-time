@@ -10,3 +10,4 @@
 pub mod fusion;
 pub mod geometry;
 pub mod plan;
+pub mod train;
