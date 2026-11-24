@@ -1,0 +1,16 @@
+[package]
+name = "vt"
+version = "0.1.0"
+edition = "2021"
+description = "Geometry, budget and fusion primitives for volumetric-time training, with the invariants as tests"
+license = "MIT"
+
+[[bin]]
+name = "vt"
+path = "src/main.rs"
+
+[lib]
+name = "vt"
+path = "src/lib.rs"
+
+[dependencies]
