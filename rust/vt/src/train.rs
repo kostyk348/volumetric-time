@@ -79,6 +79,7 @@ pub struct Config {
     pub lr: f64,
     pub weight_decay: f64,
     pub log_every: usize,
+    pub cosine: bool,
     pub seed: u64,
     pub arm: Arm,
 }
@@ -95,6 +96,7 @@ impl Default for Config {
             lr: 1e-3,
             weight_decay: 0.01,
             log_every: 200,
+            cosine: false,
             seed: 1,
             arm: Arm::Base,
         }
@@ -116,10 +118,10 @@ impl Model {
     fn new(p: usize, dim: usize, hidden: usize, rng: &mut Rng) -> Self {
         let mut emb = vec![0.0; p * dim];
         for value in emb.iter_mut() {
-            *value = rng.normal() * 0.1;
+            *value = rng.normal();
         }
         let mut w1 = vec![0.0; 2 * dim * hidden];
-        let scale1 = (2.0 / (2 * dim) as f64).sqrt();
+        let scale1 = (1.0 / (2 * dim) as f64).sqrt();
         for value in w1.iter_mut() {
             *value = rng.normal() * scale1;
         }
@@ -245,7 +247,7 @@ pub fn run(config: &Config, verbose: bool) -> Report {
     for epoch in 1..=config.epochs {
         let progress = epoch as f64 / config.epochs as f64;
         let cosine = 0.5 * (1.0 + (std::f64::consts::PI * progress).cos());
-        let lr = config.lr * (0.05 + 0.95 * cosine);
+        let lr = if config.cosine { config.lr * (0.05 + 0.95 * cosine) } else { config.lr };
 
         // Learning-rate scale per matrix: a frozen matrix takes no step at all.
         let lr_scale = [if frozen[0] { 0.0 } else { 1.0 }, if frozen[1] { 0.0 } else { 1.0 }];
@@ -473,6 +475,18 @@ pub fn run(config: &Config, verbose: bool) -> Report {
                 }
             }
 
+            if verbose && epoch + config.log_every > config.epochs {
+                for (a, b, y) in eval_set.iter().copied().take(6) {
+                    model.forward(a, b, &mut x, &mut h, &mut logits);
+                    let mut best = 0usize;
+                    for k in 1..config.p {
+                        if logits[k] > logits[best] {
+                            best = k;
+                        }
+                    }
+                    println!("   a={a:3} b={b:3} y={y:3} pred={best:3} logit_y={:7.3}", logits[y]);
+                }
+            }
             if verbose {
                 println!(
                     "ep {:5} | tr {:7.4} | te {:7.4} | acc {:5.3} | v1 {:7.5} v2 {:7.5} | ranks {:5.2}/{:5.2} | frozen {}{}",
